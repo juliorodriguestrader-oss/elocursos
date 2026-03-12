@@ -1,39 +1,1919 @@
-import { useState } from "react";
-import { Package, Palette, DollarSign } from "lucide-react";
-import { SummaryCard } from "@/components/SummaryCard";
-import { ProductTable } from "@/components/ProductTable";
-import { ColorChart } from "@/components/ColorChart";
-import { BarChartProducts } from "@/components/BarChartProducts";
-import { initialProducts, getSumByColor, getTotalGeral, getTotalQtd, Product } from "@/data/products";
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PresençaFácil — Controle de Frequência</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #252a3a;
+    --accent: #4f8ef7;
+    --accent2: #22d3a0;
+    --accent3: #f7c04f;
+    --danger: #f74f6a;
+    --text: #e8eaf0;
+    --text2: #8b93a8;
+    --text3: #505870;
+    --present: #22d3a0;
+    --absent: #f74f6a;
+    --late: #f7c04f;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
 
-const fmt = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-const Index = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
 
-  return (
-    <div className="min-h-screen bg-background px-4 py-8 md:px-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">📦 Dashboard de Mercadorias</h1>
-        <p className="mt-1 text-muted-foreground">Resumo de estoque e valores por cor</p>
-      </header>
+  /* ---- LAYOUT ---- */
+  .app { display: flex; min-height: 100vh; }
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard title="Total Geral" value={fmt(getTotalGeral(products))} icon={<DollarSign />} colorClass="bg-primary text-primary-foreground" delay={0} />
-        <SummaryCard title="Azul" value={fmt(getSumByColor(products, "Azul"))} icon={<Palette />} colorClass="bg-chart-azul text-accent-foreground" delay={0.1} />
-        <SummaryCard title="Verde" value={fmt(getSumByColor(products, "Verde"))} icon={<Palette />} colorClass="bg-chart-verde text-accent-foreground" delay={0.15} />
-        <SummaryCard title="Qtd Total" value={String(getTotalQtd(products))} icon={<Package />} colorClass="bg-secondary text-secondary-foreground" delay={0.2} />
-      </div>
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    transition: transform .3s;
+  }
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
-        <ColorChart products={products} />
-        <BarChartProducts products={products} />
-      </div>
+  .logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+  .logo p { font-size: .75rem; color: var(--text3); margin-top: 2px; }
 
-      <ProductTable products={products} onChange={setProducts} />
+  nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+
+  .nav-section { margin-bottom: 8px; }
+  .nav-label {
+    font-size: .65rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 0 12px;
+    margin-bottom: 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text2);
+    font-size: .875rem;
+    font-weight: 500;
+    transition: all .15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(79,142,247,.15); color: var(--accent); }
+  .nav-item .icon { font-size: 1rem; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    font-size: .75rem;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  /* MAIN */
+  .main {
+    margin-left: 240px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topbar h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .badge-date {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: .8rem;
+    color: var(--text2);
+  }
+
+  .menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .content { padding: 28px; flex: 1; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* STATS ROW */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .stat-card.blue::before { background: var(--accent); }
+  .stat-card.green::before { background: var(--accent2); }
+  .stat-card.yellow::before { background: var(--accent3); }
+  .stat-card.red::before { background: var(--danger); }
+
+  .stat-label { font-size: .75rem; color: var(--text3); font-weight: 500; margin-bottom: 6px; }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .stat-card.blue .stat-value { color: var(--accent); }
+  .stat-card.green .stat-value { color: var(--accent2); }
+  .stat-card.yellow .stat-value { color: var(--accent3); }
+  .stat-card.red .stat-value { color: var(--danger); }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: .8rem;
+    font-weight: 500;
+    color: var(--text2);
+    letter-spacing: .02em;
+  }
+
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: .875rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,142,247,.1);
+  }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all .15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #3a7ef0; }
+
+  .btn-success {
+    background: var(--accent2);
+    color: #0d1a15;
+  }
+  .btn-success:hover { background: #1bc494; }
+
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+  }
+  .btn-danger:hover { background: #e03d58; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-sm { padding: 6px 14px; font-size: .8rem; }
+  .btn-xs { padding: 4px 10px; font-size: .75rem; border-radius: 6px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(37,42,58,.7);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .td-actions { display: flex; gap: 6px; }
+
+  /* TAGS/BADGES */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .tag-seg { background: rgba(79,142,247,.15); color: var(--accent); }
+  .tag-ter { background: rgba(34,211,160,.15); color: var(--accent2); }
+  .tag-sex { background: rgba(247,192,79,.15); color: var(--accent3); }
+  .tag-sab { background: rgba(175,100,240,.15); color: #af64f0; }
+
+  /* PRESENCE CONTROL */
+  .presence-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: end;
+  }
+
+  .presence-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .presence-table { width: 100%; border-collapse: collapse; }
+
+  .presence-table th {
+    background: var(--surface2);
+    padding: 10px 16px;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text3);
+    font-weight: 600;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .presence-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .presence-row.present td { background: rgba(34,211,160,.04); }
+  .presence-row.absent td { background: rgba(247,79,106,.04); }
+  .presence-row.late td { background: rgba(247,192,79,.04); }
+
+  .status-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .status-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all .15s;
+    background: var(--surface2);
+    color: var(--text2);
+  }
+
+  .status-btn.presente.active, .status-btn.presente:hover {
+    background: rgba(34,211,160,.15);
+    border-color: var(--present);
+    color: var(--present);
+  }
+  .status-btn.falta.active, .status-btn.falta:hover {
+    background: rgba(247,79,106,.15);
+    border-color: var(--absent);
+    color: var(--absent);
+  }
+  .status-btn.atrasado.active, .status-btn.atrasado:hover {
+    background: rgba(247,192,79,.15);
+    border-color: var(--late);
+    color: var(--late);
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .dot-present { background: var(--present); }
+  .dot-absent { background: var(--absent); }
+  .dot-late { background: var(--late); }
+
+  /* PROGRESS BAR */
+  .prog-bar {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .prog-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .3s;
+  }
+
+  .freq-high .prog-fill { background: var(--present); }
+  .freq-mid .prog-fill { background: var(--accent3); }
+  .freq-low .prog-fill { background: var(--absent); }
+
+  /* ALERT */
+  .alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: .875rem;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .alert-info { background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3); color: var(--accent); }
+  .alert-warning { background: rgba(247,192,79,.1); border: 1px solid rgba(247,192,79,.3); color: var(--accent3); }
+  .alert-success { background: rgba(34,211,160,.1); border: 1px solid rgba(34,211,160,.3); color: var(--accent2); }
+  .alert-danger { background: rgba(247,79,106,.1); border: 1px solid rgba(247,79,106,.3); color: var(--danger); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: translateY(20px);
+    transition: transform .2s;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+
+  .modal-header {
+    padding: 24px 24px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .modal-close:hover { color: var(--text); background: var(--surface2); }
+  .modal-body { padding: 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* SEARCH */
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 36px; }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-size: .9rem;
+  }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text3);
+  }
+  .empty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty p { font-size: .9rem; }
+
+  /* SECTION TABS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    font-size: .875rem;
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .25s;
+    max-width: 320px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--accent2); }
+  #toast.error { border-color: var(--danger); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; }
+    .menu-toggle { display: block; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.three { grid-template-columns: 1fr; }
+    .presence-header { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .content { padding: 16px; }
+    .topbar { padding: 14px 16px; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr; }
+  }
+
+  /* OVERLAY for mobile */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 99;
+  }
+  @media (max-width: 768px) {
+    .sidebar-overlay.show { display: block; }
+  }
+
+  /* PRINT */
+  @media print {
+    .sidebar, .topbar, .menu-toggle, .btn, .td-actions { display: none !important; }
+    .main { margin: 0; }
+    .content { padding: 0; }
+    body { background: #fff; color: #000; }
+    .card { border: 1px solid #ddd; }
+  }
+
+  /* SCROLL */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: .78rem;
+    color: var(--text2);
+  }
+
+  .flex { display: flex; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .flex-center { display: flex; align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .mt-1 { margin-top: 8px; }
+  .mt-2 { margin-top: 16px; }
+  .mb-2 { margin-bottom: 16px; }
+  .text-sm { font-size: .8rem; }
+  .text-muted { color: var(--text2); }
+  .text-accent { color: var(--accent); }
+  .text-success { color: var(--accent2); }
+  .text-danger { color: var(--danger); }
+  .text-warning { color: var(--accent3); }
+  .fw-bold { font-weight: 700; }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .student-name { display: flex; align-items: center; gap: 10px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <h1>Presença<span>Fácil</span></h1>
+      <p>Controle de Frequência</p>
     </div>
-  );
+    <nav>
+      <div class="nav-section">
+        <div class="nav-label">Principal</div>
+        <button class="nav-item active" onclick="showView('dashboard')">
+          <span class="icon">📊</span> Dashboard
+        </button>
+        <button class="nav-item" onclick="showView('presenca')">
+          <span class="icon">✅</span> Marcar Presença
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Cadastros</div>
+        <button class="nav-item" onclick="showView('turmas')">
+          <span class="icon">🏫</span> Turmas
+        </button>
+        <button class="nav-item" onclick="showView('alunos')">
+          <span class="icon">👥</span> Alunos
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Análise</div>
+        <button class="nav-item" onclick="showView('relatorios')">
+          <span class="icon">📋</span> Relatórios
+        </button>
+        <button class="nav-item" onclick="showView('historico')">
+          <span class="icon">🗓️</span> Histórico
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">v1.0 · PresençaFácil</div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+        <h2 id="page-title">Dashboard</h2>
+      </div>
+      <div class="topbar-right">
+        <span class="badge-date" id="current-date-badge"></span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div class="view active" id="view-dashboard">
+        <div class="stats-grid" id="dash-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-title">📅 Próximas Aulas Hoje</div>
+            <div id="dash-today"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">⚠️ Alunos com Baixa Frequência</div>
+            <div id="dash-alerts"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:0;">
+          <div class="card-title">📈 Últimas Presenças Registradas</div>
+          <div id="dash-recent"></div>
+        </div>
+      </div>
+
+      <!-- ===== MARCAR PRESENÇA ===== -->
+      <div class="view" id="view-presenca">
+        <div class="card">
+          <div class="card-title">🎯 Selecione a Turma e Data</div>
+          <div class="presence-header">
+            <div class="form-group">
+              <label>Turma</label>
+              <select id="pres-turma" onchange="loadPresenceStudents()">
+                <option value="">-- Selecione a turma --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Data da Aula</label>
+              <input type="date" id="pres-data" onchange="loadPresenceStudents()">
+            </div>
+          </div>
+          <div id="pres-alert"></div>
+        </div>
+
+        <div id="pres-table-section" style="display:none;">
+          <div class="card">
+            <div class="presence-toolbar">
+              <div class="flex-between" style="width:100%;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <span class="text-sm text-muted" id="pres-summary"></span>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-success btn-sm" onclick="markAll('presente')">✅ Todos Presentes</button>
+                  <button class="btn btn-ghost btn-sm" onclick="markAll('falta')">❌ Todos Falta</button>
+                  <button class="btn btn-primary btn-sm" onclick="savePresence()">💾 Salvar Presença</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="presence-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Aluno</th>
+                    <th>Telefone</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="pres-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== TURMAS ===== -->
+      <div class="view" id="view-turmas">
+        <div class="flex-between mb-2">
+          <div></div>
+          <button class="btn btn-primary" onclick="openModal('modal-turma')">+ Nova Turma</button>
+        </div>
+        <div class="card">
+          <div class="card-title">🏫 Turmas Cadastradas</div>
+          <div class="search-wrap mb-2">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar turma..." id="search-turma" oninput="renderTurmas()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Curso</th>
+                  <th>Dias</th>
+                  <th>Horário</th>
+                  <th>Professor</th>
+                  <th>Alunos</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="turmas-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ALUNOS ===== -->
+      <div class="view" id="view-alunos">
+        <div class="flex-between mb-2">
+          <div></div>
+          <button class="btn btn-primary" onclick="openModal('modal-aluno')">+ Novo Aluno</button>
+        </div>
+        <div class="card">
+          <div class="card-title">👥 Alunos Cadastrados</div>
+          <div class="search-wrap mb-2">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Buscar aluno..." id="search-aluno" oninput="renderAlunos()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Telefone</th>
+                  <th>Turma</th>
+                  <th>Matrícula</th>
+                  <th>Frequência</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="alunos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RELATÓRIOS ===== -->
+      <div class="view" id="view-relatorios">
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start;">
+          <div class="card">
+            <div class="card-title">🔍 Filtros</div>
+            <div class="form-group mb-2">
+              <label>Turma</label>
+              <select id="rel-turma" onchange="renderRelatorio()">
+                <option value="">Todas as turmas</option>
+              </select>
+            </div>
+            <div class="form-group mb-2">
+              <label>Data inicial</label>
+              <input type="date" id="rel-inicio" onchange="renderRelatorio()">
+            </div>
+            <div class="form-group mb-2">
+              <label>Data final</label>
+              <input type="date" id="rel-fim" onchange="renderRelatorio()">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+              <button class="btn btn-success" onclick="exportExcel()">📥 Exportar Excel</button>
+              <button class="btn btn-ghost" onclick="exportCSV()">📄 Exportar CSV</button>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-title">📊 Frequência por Aluno</div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Aluno</th>
+                      <th>Turma</th>
+                      <th>Presentes</th>
+                      <th>Faltas</th>
+                      <th>Atrasos</th>
+                      <th>Frequência</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rel-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== HISTÓRICO ===== -->
+      <div class="view" id="view-historico">
+        <div class="card">
+          <div class="card-title">🗓️ Histórico de Presença por Dia</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div class="form-group">
+              <label>Turma</label>
+              <select id="hist-turma" onchange="renderHistorico()">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Data</label>
+              <input type="date" id="hist-data" onchange="renderHistorico()">
+            </div>
+            <div class="form-group">
+              <label>Aluno</label>
+              <input type="text" id="hist-aluno" placeholder="Filtrar por nome..." oninput="renderHistorico()">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Turma</th>
+                  <th>Aluno</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="hist-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ===== MODAL TURMA ===== -->
+<div class="modal-overlay" id="modal-turma">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-turma-title">Nova Turma</span>
+      <button class="modal-close" onclick="closeModal('modal-turma')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="turma-edit-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome da Turma *</label>
+          <input type="text" id="turma-nome" placeholder="Ex: Turma A">
+        </div>
+        <div class="form-group">
+          <label>Curso *</label>
+          <input type="text" id="turma-curso" placeholder="Ex: Informática Básica">
+        </div>
+        <div class="form-group">
+          <label>Dias da Semana *</label>
+          <select id="turma-dias">
+            <option value="seg_qua">Segunda e Quarta</option>
+            <option value="ter_qui">Terça e Quinta</option>
+            <option value="sex">Sexta-feira</option>
+            <option value="sab">Sábado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Horário *</label>
+          <input type="time" id="turma-horario">
+        </div>
+        <div class="form-group full">
+          <label>Professor (opcional)</label>
+          <input type="text" id="turma-professor" placeholder="Nome do professor">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-turma')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTurma()">Salvar Turma</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL ALUNO ===== -->
+<div class="modal-overlay" id="modal-aluno">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-aluno-title">Novo Aluno</span>
+      <button class="modal-close" onclick="closeModal('modal-aluno')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="aluno-edit-id">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nome do Aluno *</label>
+          <input type="text" id="aluno-nome" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="aluno-telefone" placeholder="(11) 99999-9999">
+        </div>
+        <div class="form-group">
+          <label>Turma *</label>
+          <select id="aluno-turma"></select>
+        </div>
+        <div class="form-group">
+          <label>Data de Matrícula *</label>
+          <input type="date" id="aluno-matricula">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-aluno')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAluno()">Salvar Aluno</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL HISTÓRICO ALUNO ===== -->
+<div class="modal-overlay" id="modal-hist-aluno">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-hist-title">Histórico do Aluno</span>
+      <button class="modal-close" onclick="closeModal('modal-hist-aluno')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-hist-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-hist-aluno')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ===================== DATA STORE =====================
+let DB = {
+  turmas: [],
+  alunos: [],
+  presencas: [] // { id, turmaId, alunoId, data, status: 'presente'|'falta'|'atrasado' }
 };
 
-export default Index;
+function saveDB() {
+  try { localStorage.setItem('presencafacil_db', JSON.stringify(DB)); } catch(e) {}
+}
+
+function loadDB() {
+  try {
+    const s = localStorage.getItem('presencafacil_db');
+    if (s) DB = JSON.parse(s);
+  } catch(e) {}
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// ===================== INIT =====================
+function init() {
+  loadDB();
+  if (DB.turmas.length === 0) loadSampleData();
+  updateDateBadge();
+  populateSelects();
+  renderDashboard();
+  // Set default dates
+  const today = todayStr();
+  document.getElementById('pres-data').value = today;
+  document.getElementById('aluno-matricula').value = today;
+  const m1 = new Date(); m1.setMonth(m1.getMonth()-1);
+  document.getElementById('rel-inicio').value = m1.toISOString().split('T')[0];
+  document.getElementById('rel-fim').value = today;
+}
+
+function loadSampleData() {
+  DB.turmas = [
+    { id:'t1', nome:'Turma A', curso:'Informática Básica', dias:'seg_qua', horario:'08:00', professor:'Prof. Carlos' },
+    { id:'t2', nome:'Turma B', curso:'Excel Avançado', dias:'ter_qui', horario:'14:00', professor:'Prof. Ana' },
+    { id:'t3', nome:'Turma C', curso:'Design Gráfico', dias:'sex', horario:'19:00', professor:'' },
+    { id:'t4', nome:'Turma D', curso:'Manutenção de Computadores', dias:'sab', horario:'09:00', professor:'Prof. Roberto' },
+  ];
+  const nomes = ['Ana Silva','Bruno Costa','Carla Mendes','Diego Ferreira','Elaine Santos',
+    'Felipe Alves','Giovanna Lima','Henrique Rocha','Isabela Mota','João Barbosa',
+    'Karla Dias','Lucas Nunes','Mariana Castro','Nathan Sousa','Olívia Teixeira'];
+  DB.alunos = [];
+  nomes.forEach((n,i)=>{
+    const turmaIdx = i % 4;
+    const turmaIds = ['t1','t2','t3','t4'];
+    DB.alunos.push({
+      id:'a'+(i+1),
+      nome:n,
+      telefone:`(11) 9${String(Math.floor(Math.random()*90000000+10000000))}`,
+      turmaId: turmaIds[turmaIdx],
+      matricula: '2024-03-01'
+    });
+  });
+  // Generate some presencas for the past 2 weeks
+  const statuses = ['presente','presente','presente','presente','falta','atrasado'];
+  const today = new Date();
+  for(let d=14;d>=0;d--) {
+    const dt = new Date(today); dt.setDate(dt.getDate()-d);
+    const dow = dt.getDay(); // 0=sun,1=mon,...,6=sat
+    DB.turmas.forEach(t => {
+      const days = turmaWeekdays(t.dias);
+      if(days.includes(dow)) {
+        const dateStr = dt.toISOString().split('T')[0];
+        const studentsInTurma = DB.alunos.filter(a=>a.turmaId===t.id);
+        studentsInTurma.forEach(aluno => {
+          if(!DB.presencas.find(p=>p.turmaId===t.id&&p.alunoId===aluno.id&&p.data===dateStr)){
+            DB.presencas.push({
+              id:uid(), turmaId:t.id, alunoId:aluno.id,
+              data:dateStr,
+              status:statuses[Math.floor(Math.random()*statuses.length)]
+            });
+          }
+        });
+      }
+    });
+  }
+  saveDB();
+}
+
+// ===================== HELPERS =====================
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function turmaWeekdays(dias) {
+  // returns array of weekday numbers (0=sun, 1=mon, 2=tue...)
+  switch(dias) {
+    case 'seg_qua': return [1,3];
+    case 'ter_qui': return [2,4];
+    case 'sex': return [5];
+    case 'sab': return [6];
+    default: return [];
+  }
+}
+
+function diasLabel(dias) {
+  switch(dias) {
+    case 'seg_qua': return { label:'Seg / Qua', cls:'tag-seg' };
+    case 'ter_qui': return { label:'Ter / Qui', cls:'tag-ter' };
+    case 'sex':     return { label:'Sexta', cls:'tag-sex' };
+    case 'sab':     return { label:'Sábado', cls:'tag-sab' };
+    default: return { label:'-', cls:'' };
+  }
+}
+
+function isValidDayForTurma(turma, dateStr) {
+  const dt = new Date(dateStr+'T12:00:00');
+  const dow = dt.getDay();
+  return turmaWeekdays(turma.dias).includes(dow);
+}
+
+function formatDate(str) {
+  if(!str) return '-';
+  const [y,m,d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function formatTime(str) {
+  return str || '-';
+}
+
+function initials(name) {
+  return name.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+}
+
+function getTurma(id) { return DB.turmas.find(t=>t.id===id); }
+function getAluno(id) { return DB.alunos.find(a=>a.id===id); }
+
+function getFrequencia(alunoId, turmaId, from, to) {
+  let pres = DB.presencas.filter(p=>p.alunoId===alunoId);
+  if(turmaId) pres = pres.filter(p=>p.turmaId===turmaId);
+  if(from) pres = pres.filter(p=>p.data>=from);
+  if(to) pres = pres.filter(p=>p.data<=to);
+  const total = pres.length;
+  const presentes = pres.filter(p=>p.status==='presente').length;
+  const faltas = pres.filter(p=>p.status==='falta').length;
+  const atrasos = pres.filter(p=>p.status==='atrasado').length;
+  const pct = total > 0 ? Math.round(((presentes+atrasos)/total)*100) : null;
+  return { total, presentes, faltas, atrasos, pct };
+}
+
+// ===================== UI HELPERS =====================
+function updateDateBadge() {
+  const d = new Date();
+  const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  document.getElementById('current-date-badge').textContent =
+    `${dias[d.getDay()]}, ${formatDate(todayStr())}`;
+}
+
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if(el.getAttribute('onclick')===`showView('${v}')`) el.classList.add('active');
+  });
+  const titles = {
+    dashboard:'Dashboard', presenca:'Marcar Presença',
+    turmas:'Turmas', alunos:'Alunos',
+    relatorios:'Relatórios', historico:'Histórico'
+  };
+  document.getElementById('page-title').textContent = titles[v] || v;
+  closeSidebar();
+
+  if(v==='dashboard') renderDashboard();
+  if(v==='turmas') renderTurmas();
+  if(v==='alunos') renderAlunos();
+  if(v==='relatorios') { populateRelSelects(); renderRelatorio(); }
+  if(v==='historico') { populateHistSelects(); renderHistorico(); }
+  if(v==='presenca') { populatePresSelects(); loadPresenceStudents(); }
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+function openModal(id, reset=true) {
+  if(reset) {
+    if(id==='modal-turma') resetTurmaForm();
+    if(id==='modal-aluno') resetAlunoForm();
+  }
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = (type==='success'?'✅ ':type==='error'?'❌ ':'ℹ️ ') + msg;
+  t.className = 'show ' + type;
+  setTimeout(()=>{ t.className=''; }, 3000);
+}
+
+function populateSelects() {
+  // Populate all turma selects
+  const selects = ['pres-turma','aluno-turma','rel-turma','hist-turma'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const first = el.querySelector('option[value=""]');
+    el.innerHTML = '';
+    if(first) el.appendChild(first.cloneNode(true));
+    else { const o=document.createElement('option'); o.value=''; o.textContent='-- Selecione --'; el.appendChild(o); }
+    DB.turmas.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+      el.appendChild(o);
+    });
+  });
+}
+
+function populatePresSelects() {
+  const el = document.getElementById('pres-turma');
+  el.innerHTML = '<option value="">-- Selecione a turma --</option>';
+  DB.turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+    el.appendChild(o);
+  });
+}
+
+function populateRelSelects() {
+  const el = document.getElementById('rel-turma');
+  el.innerHTML = '<option value="">Todas as turmas</option>';
+  DB.turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+    el.appendChild(o);
+  });
+}
+
+function populateHistSelects() {
+  const el = document.getElementById('hist-turma');
+  el.innerHTML = '<option value="">Todas</option>';
+  DB.turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+    el.appendChild(o);
+  });
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard() {
+  const totalTurmas = DB.turmas.length;
+  const totalAlunos = DB.alunos.length;
+  const today = todayStr();
+  const todayPres = DB.presencas.filter(p=>p.data===today);
+
+  // presencas this month
+  const thisMonth = today.slice(0,7);
+  const monthPres = DB.presencas.filter(p=>p.data.startsWith(thisMonth));
+  const monthTotal = monthPres.length;
+  const monthPresentes = monthPres.filter(p=>p.status==='presente'||p.status==='atrasado').length;
+  const avgFreq = monthTotal > 0 ? Math.round((monthPresentes/monthTotal)*100) : 0;
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-card blue">
+      <div class="stat-label">Total de Turmas</div>
+      <div class="stat-value">${totalTurmas}</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Total de Alunos</div>
+      <div class="stat-value">${totalAlunos}</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-label">Freq. Média (mês)</div>
+      <div class="stat-value">${avgFreq}%</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Registros Hoje</div>
+      <div class="stat-value">${todayPres.length}</div>
+    </div>
+  `;
+
+  // Today's classes
+  const dt = new Date();
+  const dow = dt.getDay();
+  const todayTurmas = DB.turmas.filter(t => turmaWeekdays(t.dias).includes(dow));
+  const todayEl = document.getElementById('dash-today');
+  if(todayTurmas.length === 0) {
+    todayEl.innerHTML = '<div class="empty"><div class="empty-icon">🏖️</div><p>Sem aulas hoje</p></div>';
+  } else {
+    todayEl.innerHTML = todayTurmas.map(t => {
+      const alunos = DB.alunos.filter(a=>a.turmaId===t.id);
+      const marked = DB.presencas.filter(p=>p.turmaId===t.id&&p.data===today).length;
+      const {label, cls} = diasLabel(t.dias);
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div class="fw-bold">${t.nome}</div>
+            <div class="text-sm text-muted">${t.curso} · ${t.horario}</div>
+          </div>
+          <div style="text-align:right;">
+            <span class="tag ${cls}">${label}</span>
+            <div class="text-sm text-muted mt-1">${marked}/${alunos.length} marcados</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Alerts - alunos < 75%
+  const alertsEl = document.getElementById('dash-alerts');
+  const alerts = [];
+  DB.alunos.forEach(a => {
+    const f = getFrequencia(a.id, null, null, null);
+    if(f.total > 0 && f.pct !== null && f.pct < 75) {
+      alerts.push({ aluno: a, pct: f.pct, faltas: f.faltas });
+    }
+  });
+  alerts.sort((a,b)=>a.pct-b.pct);
+  if(alerts.length === 0) {
+    alertsEl.innerHTML = '<div class="empty"><div class="empty-icon">🎉</div><p>Nenhum aluno com baixa frequência</p></div>';
+  } else {
+    alertsEl.innerHTML = alerts.slice(0,6).map(item => {
+      const t = getTurma(item.aluno.turmaId);
+      const cls = item.pct < 50 ? 'freq-low' : 'freq-mid';
+      return `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <div class="flex-between">
+            <span class="fw-bold" style="font-size:.875rem;">${item.aluno.nome}</span>
+            <span class="text-sm ${item.pct < 50 ? 'text-danger':'text-warning'}">${item.pct}%</span>
+          </div>
+          <div class="text-sm text-muted">${t ? t.nome : '-'} · ${item.faltas} faltas</div>
+          <div class="prog-bar ${cls}"><div class="prog-fill" style="width:${item.pct}%"></div></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Recent
+  const recentEl = document.getElementById('dash-recent');
+  const recent = [...DB.presencas].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,8);
+  if(recent.length === 0) {
+    recentEl.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Nenhuma presença registrada ainda</p></div>';
+  } else {
+    const grouped = {};
+    recent.forEach(p => {
+      const key = p.data + '_' + p.turmaId;
+      if(!grouped[key]) grouped[key] = { data:p.data, turmaId:p.turmaId, presentes:0, faltas:0, atrasos:0, total:0 };
+      grouped[key].total++;
+      if(p.status==='presente') grouped[key].presentes++;
+      else if(p.status==='falta') grouped[key].faltas++;
+      else grouped[key].atrasos++;
+    });
+    const rows = Object.values(grouped).sort((a,b)=>b.data.localeCompare(a.data)).slice(0,6);
+    recentEl.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Turma</th><th>Presentes</th><th>Faltas</th><th>Atrasos</th></tr></thead>
+      <tbody>
+        ${rows.map(r => {
+          const t = getTurma(r.turmaId);
+          return `<tr>
+            <td>${formatDate(r.data)}</td>
+            <td>${t ? t.nome : '-'}</td>
+            <td><span style="color:var(--accent2)">${r.presentes}</span></td>
+            <td><span style="color:var(--danger)">${r.faltas}</span></td>
+            <td><span style="color:var(--accent3)">${r.atrasos}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`;
+  }
+}
+
+// ===================== TURMAS =====================
+function renderTurmas() {
+  const search = (document.getElementById('search-turma').value||'').toLowerCase();
+  const filtered = DB.turmas.filter(t =>
+    t.nome.toLowerCase().includes(search) ||
+    t.curso.toLowerCase().includes(search)
+  );
+  const tbody = document.getElementById('turmas-tbody');
+  if(filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><p>Nenhuma turma encontrada</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(t => {
+    const {label,cls} = diasLabel(t.dias);
+    const numAlunos = DB.alunos.filter(a=>a.turmaId===t.id).length;
+    return `<tr>
+      <td><strong>${t.nome}</strong></td>
+      <td>${t.curso}</td>
+      <td><span class="tag ${cls}">${label}</span></td>
+      <td>${t.horario || '-'}</td>
+      <td>${t.professor || '<span class="text-muted">—</span>'}</td>
+      <td><span class="pill">${numAlunos}</span></td>
+      <td><div class="td-actions">
+        <button class="btn btn-ghost btn-xs" onclick="editTurma('${t.id}')">✏️</button>
+        <button class="btn btn-ghost btn-xs" onclick="deleteTurma('${t.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function resetTurmaForm() {
+  document.getElementById('turma-edit-id').value = '';
+  document.getElementById('turma-nome').value = '';
+  document.getElementById('turma-curso').value = '';
+  document.getElementById('turma-dias').value = 'seg_qua';
+  document.getElementById('turma-horario').value = '';
+  document.getElementById('turma-professor').value = '';
+  document.getElementById('modal-turma-title').textContent = 'Nova Turma';
+}
+
+function saveTurma() {
+  const id = document.getElementById('turma-edit-id').value;
+  const nome = document.getElementById('turma-nome').value.trim();
+  const curso = document.getElementById('turma-curso').value.trim();
+  const dias = document.getElementById('turma-dias').value;
+  const horario = document.getElementById('turma-horario').value;
+  const professor = document.getElementById('turma-professor').value.trim();
+  if(!nome || !curso) { toast('Preencha nome e curso', 'error'); return; }
+  if(id) {
+    const t = DB.turmas.find(x=>x.id===id);
+    if(t) Object.assign(t, {nome,curso,dias,horario,professor});
+  } else {
+    DB.turmas.push({id:uid(),nome,curso,dias,horario,professor});
+  }
+  saveDB(); populateSelects();
+  closeModal('modal-turma');
+  renderTurmas();
+  toast(id ? 'Turma atualizada!' : 'Turma cadastrada!');
+}
+
+function editTurma(id) {
+  const t = DB.turmas.find(x=>x.id===id);
+  if(!t) return;
+  document.getElementById('turma-edit-id').value = t.id;
+  document.getElementById('turma-nome').value = t.nome;
+  document.getElementById('turma-curso').value = t.curso;
+  document.getElementById('turma-dias').value = t.dias;
+  document.getElementById('turma-horario').value = t.horario || '';
+  document.getElementById('turma-professor').value = t.professor || '';
+  document.getElementById('modal-turma-title').textContent = 'Editar Turma';
+  openModal('modal-turma', false);
+}
+
+function deleteTurma(id) {
+  if(!confirm('Tem certeza que deseja excluir esta turma?')) return;
+  DB.turmas = DB.turmas.filter(t=>t.id!==id);
+  DB.alunos.forEach(a => { if(a.turmaId===id) a.turmaId=''; });
+  DB.presencas = DB.presencas.filter(p=>p.turmaId!==id);
+  saveDB(); populateSelects(); renderTurmas();
+  toast('Turma excluída');
+}
+
+// ===================== ALUNOS =====================
+function renderAlunos() {
+  const search = (document.getElementById('search-aluno').value||'').toLowerCase();
+  const filtered = DB.alunos.filter(a => a.nome.toLowerCase().includes(search));
+  const tbody = document.getElementById('alunos-tbody');
+  if(filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhum aluno encontrado</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(a => {
+    const t = getTurma(a.turmaId);
+    const f = getFrequencia(a.id, null, null, null);
+    const {label,cls} = t ? diasLabel(t.dias) : {label:'-',cls:''};
+    const freqClass = f.pct === null ? '' : f.pct >= 75 ? 'freq-high' : f.pct >= 50 ? 'freq-mid' : 'freq-low';
+    return `<tr>
+      <td><div class="student-name">
+        <div class="avatar">${initials(a.nome)}</div>
+        <strong>${a.nome}</strong>
+      </div></td>
+      <td>${a.telefone || '<span class="text-muted">—</span>'}</td>
+      <td>
+        ${t ? `<span class="text-sm">${t.nome}</span><br><span class="tag ${cls}">${label}</span>` : '<span class="text-muted">—</span>'}
+      </td>
+      <td>${formatDate(a.matricula)}</td>
+      <td>
+        ${f.pct !== null
+          ? `<div style="min-width:100px;">
+              <div class="flex-between"><span class="text-sm ${f.pct<75?'text-danger':'text-success'}">${f.pct}%</span><span class="text-sm text-muted">${f.faltas} falta(s)</span></div>
+              <div class="prog-bar ${freqClass}"><div class="prog-fill" style="width:${f.pct}%"></div></div>
+            </div>`
+          : '<span class="text-muted text-sm">Sem dados</span>'}
+      </td>
+      <td><div class="td-actions">
+        <button class="btn btn-ghost btn-xs" onclick="viewAlunoHist('${a.id}')">📋</button>
+        <button class="btn btn-ghost btn-xs" onclick="editAluno('${a.id}')">✏️</button>
+        <button class="btn btn-ghost btn-xs" onclick="deleteAluno('${a.id}')">🗑️</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function resetAlunoForm() {
+  document.getElementById('aluno-edit-id').value = '';
+  document.getElementById('aluno-nome').value = '';
+  document.getElementById('aluno-telefone').value = '';
+  document.getElementById('aluno-turma').value = '';
+  document.getElementById('aluno-matricula').value = todayStr();
+  document.getElementById('modal-aluno-title').textContent = 'Novo Aluno';
+  // Populate turma select
+  const sel = document.getElementById('aluno-turma');
+  sel.innerHTML = '<option value="">-- Selecione a turma --</option>';
+  DB.turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+    sel.appendChild(o);
+  });
+}
+
+function saveAluno() {
+  const id = document.getElementById('aluno-edit-id').value;
+  const nome = document.getElementById('aluno-nome').value.trim();
+  const telefone = document.getElementById('aluno-telefone').value.trim();
+  const turmaId = document.getElementById('aluno-turma').value;
+  const matricula = document.getElementById('aluno-matricula').value;
+  if(!nome || !turmaId || !matricula) { toast('Preencha os campos obrigatórios', 'error'); return; }
+  if(id) {
+    const a = DB.alunos.find(x=>x.id===id);
+    if(a) Object.assign(a, {nome,telefone,turmaId,matricula});
+  } else {
+    DB.alunos.push({id:uid(),nome,telefone,turmaId,matricula});
+  }
+  saveDB();
+  closeModal('modal-aluno');
+  renderAlunos();
+  toast(id ? 'Aluno atualizado!' : 'Aluno cadastrado!');
+}
+
+function editAluno(id) {
+  const a = DB.alunos.find(x=>x.id===id);
+  if(!a) return;
+  // Populate turma select first
+  const sel = document.getElementById('aluno-turma');
+  sel.innerHTML = '<option value="">-- Selecione a turma --</option>';
+  DB.turmas.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = `${t.nome} — ${t.curso}`;
+    sel.appendChild(o);
+  });
+  document.getElementById('aluno-edit-id').value = a.id;
+  document.getElementById('aluno-nome').value = a.nome;
+  document.getElementById('aluno-telefone').value = a.telefone || '';
+  document.getElementById('aluno-turma').value = a.turmaId;
+  document.getElementById('aluno-matricula').value = a.matricula;
+  document.getElementById('modal-aluno-title').textContent = 'Editar Aluno';
+  openModal('modal-aluno', false);
+}
+
+function deleteAluno(id) {
+  if(!confirm('Tem certeza que deseja excluir este aluno?')) return;
+  DB.alunos = DB.alunos.filter(a=>a.id!==id);
+  DB.presencas = DB.presencas.filter(p=>p.alunoId!==id);
+  saveDB(); renderAlunos();
+  toast('Aluno excluído');
+}
+
+function viewAlunoHist(id) {
+  const aluno = getAluno(id);
+  if(!aluno) return;
+  const t = getTurma(aluno.turmaId);
+  const pres = DB.presencas.filter(p=>p.alunoId===id).sort((a,b)=>b.data.localeCompare(a.data));
+  const f = getFrequencia(id, null, null, null);
+  document.getElementById('modal-hist-title').textContent = `Histórico — ${aluno.nome}`;
+  const freqCls = f.pct === null ? '' : f.pct >= 75 ? 'text-success' : f.pct >= 50 ? 'text-warning' : 'text-danger';
+  document.getElementById('modal-hist-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div class="stat-card green"><div class="stat-label">Presentes</div><div class="stat-value" style="font-size:1.5rem;">${f.presentes}</div></div>
+      <div class="stat-card red"><div class="stat-label">Faltas</div><div class="stat-value" style="font-size:1.5rem;">${f.faltas}</div></div>
+      <div class="stat-card yellow"><div class="stat-label">Atrasos</div><div class="stat-value" style="font-size:1.5rem;">${f.atrasos}</div></div>
+      <div class="stat-card blue"><div class="stat-label">Frequência</div><div class="stat-value ${freqCls}" style="font-size:1.5rem;">${f.pct !== null ? f.pct+'%' : '-'}</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Turma</th><th>Status</th></tr></thead>
+        <tbody>
+          ${pres.length === 0 ? '<tr><td colspan="3"><div class="empty"><p>Nenhum registro</p></div></td></tr>'
+          : pres.slice(0,30).map(p => {
+            const pt = getTurma(p.turmaId);
+            const statusMap = { presente:'✅ Presente', falta:'❌ Falta', atrasado:'⏰ Atrasado' };
+            const clsMap = { presente:'text-success', falta:'text-danger', atrasado:'text-warning' };
+            return `<tr><td>${formatDate(p.data)}</td><td>${pt?pt.nome:'-'}</td>
+              <td><span class="${clsMap[p.status]||''}">${statusMap[p.status]||p.status}</span></td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  openModal('modal-hist-aluno', false);
+}
+
+// ===================== PRESENÇA =====================
+// Store current session attendance
+let currentPresSession = {};
+
+function loadPresenceStudents() {
+  const turmaId = document.getElementById('pres-turma').value;
+  const dateStr = document.getElementById('pres-data').value;
+  const alertEl = document.getElementById('pres-alert');
+  const section = document.getElementById('pres-table-section');
+
+  alertEl.innerHTML = '';
+  section.style.display = 'none';
+  currentPresSession = {};
+
+  if(!turmaId || !dateStr) return;
+
+  const turma = getTurma(turmaId);
+  if(!turma) return;
+
+  // Validate day
+  if(!isValidDayForTurma(turma, dateStr)) {
+    const dias = { seg_qua:'segunda-feira e quarta-feira', ter_qui:'terça-feira e quinta-feira', sex:'sexta-feira', sab:'sábado' };
+    alertEl.innerHTML = `<div class="alert alert-warning">⚠️ Esta turma só tem aula em <strong>${dias[turma.dias]}</strong>. A data selecionada não é um dia de aula desta turma.</div>`;
+    return;
+  }
+
+  const alunos = DB.alunos.filter(a => a.turmaId === turmaId);
+  if(alunos.length === 0) {
+    alertEl.innerHTML = `<div class="alert alert-info">ℹ️ Nenhum aluno matriculado nesta turma.</div>`;
+    return;
+  }
+
+  // Check existing
+  const existing = DB.presencas.filter(p => p.turmaId === turmaId && p.data === dateStr);
+  alunos.forEach(a => {
+    const ex = existing.find(p => p.alunoId === a.id);
+    currentPresSession[a.id] = ex ? ex.status : 'presente';
+  });
+
+  if(existing.length > 0) {
+    alertEl.innerHTML = `<div class="alert alert-success">✅ Presença já registrada para esta data. Você pode editar abaixo.</div>`;
+  }
+
+  section.style.display = 'block';
+  renderPresenceTable(alunos);
+}
+
+function renderPresenceTable(alunos) {
+  const tbody = document.getElementById('pres-tbody');
+  const turmaId = document.getElementById('pres-turma').value;
+  const dateStr = document.getElementById('pres-data').value;
+
+  tbody.innerHTML = alunos.map((a, i) => {
+    const status = currentPresSession[a.id] || 'presente';
+    const rowCls = status === 'presente' ? 'present' : status === 'falta' ? 'absent' : 'late';
+    return `
+      <tr class="presence-row ${rowCls}" id="prow-${a.id}">
+        <td>${i+1}</td>
+        <td><div class="student-name">
+          <div class="avatar">${initials(a.nome)}</div>
+          <strong>${a.nome}</strong>
+        </div></td>
+        <td>${a.telefone || '—'}</td>
+        <td>
+          <div class="status-btns">
+            <button class="status-btn presente ${status==='presente'?'active':''}" onclick="setStatus('${a.id}','presente')">✅ Presente</button>
+            <button class="status-btn falta ${status==='falta'?'active':''}" onclick="setStatus('${a.id}','falta')">❌ Falta</button>
+            <button class="status-btn atrasado ${status==='atrasado'?'active':''}" onclick="setStatus('${a.id}','atrasado')">⏰ Atrasado</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updatePresSummary(alunos.length);
+}
+
+function setStatus(alunoId, status) {
+  currentPresSession[alunoId] = status;
+  const row = document.getElementById('prow-'+alunoId);
+  if(row) {
+    row.className = `presence-row ${status==='presente'?'present':status==='falta'?'absent':'late'}`;
+    row.querySelectorAll('.status-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.classList.contains(status));
+    });
+  }
+  const alunos = DB.alunos.filter(a => a.turmaId === document.getElementById('pres-turma').value);
+  updatePresSummary(alunos.length);
+}
+
+function updatePresSummary(total) {
+  const vals = Object.values(currentPresSession);
+  const p = vals.filter(v=>v==='presente').length;
+  const f = vals.filter(v=>v==='falta').length;
+  const a = vals.filter(v=>v==='atrasado').length;
+  document.getElementById('pres-summary').innerHTML =
+    `<span class="dot-present status-dot"></span>${p} presentes &nbsp;
+     <span class="dot-absent status-dot"></span>${f} faltas &nbsp;
+     <span class="dot-late status-dot"></span>${a} atrasos`;
+}
+
+function markAll(status) {
+  const turmaId = document.getElementById('pres-turma').value;
+  const alunos = DB.alunos.filter(a => a.turmaId === turmaId);
+  alunos.forEach(a => { currentPresSession[a.id] = status; });
+  renderPresenceTable(alunos);
+}
+
+function savePresence() {
+  const turmaId = document.getElementById('pres-turma').value;
+  const dateStr = document.getElementById('pres-data').value;
+  if(!turmaId || !dateStr) { toast('Selecione turma e data', 'error'); return; }
+  if(Object.keys(currentPresSession).length === 0) { toast('Nenhum aluno para salvar', 'error'); return; }
+
+  // Remove existing for this turma+date
+  DB.presencas = DB.presencas.filter(p => !(p.turmaId === turmaId && p.data === dateStr));
+
+  // Insert new
+  Object.entries(currentPresSession).forEach(([alunoId, status]) => {
+    DB.presencas.push({ id:uid(), turmaId, alunoId, data:dateStr, status });
+  });
+
+  saveDB();
+  toast('Presença salva com sucesso!');
+  loadPresenceStudents();
+}
+
+// ===================== RELATÓRIOS =====================
+function renderRelatorio() {
+  const turmaId = document.getElementById('rel-turma').value;
+  const from = document.getElementById('rel-inicio').value;
+  const to = document.getElementById('rel-fim').value;
+
+  let alunos = DB.alunos;
+  if(turmaId) alunos = alunos.filter(a => a.turmaId === turmaId);
+
+  const tbody = document.getElementById('rel-tbody');
+  if(alunos.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><p>Nenhum dado encontrado</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = alunos.map(a => {
+    const t = getTurma(a.turmaId);
+    const f = getFrequencia(a.id, turmaId || null, from || null, to || null);
+    const freqCls = f.pct === null ? '' : f.pct >= 75 ? 'text-success' : f.pct >= 50 ? 'text-warning' : 'text-danger';
+    return `<tr>
+      <td><div class="student-name">
+        <div class="avatar">${initials(a.nome)}</div>
+        ${a.nome}
+      </div></td>
+      <td>${t ? t.nome : '—'}</td>
+      <td style="color:var(--accent2)">${f.presentes}</td>
+      <td style="color:var(--danger)">${f.faltas}</td>
+      <td style="color:var(--accent3)">${f.atrasos}</td>
+      <td>
+        ${f.pct !== null
+          ? `<div style="min-width:80px;">
+              <div class="flex-between"><span class="${freqCls} fw-bold">${f.pct}%</span></div>
+              <div class="prog-bar ${f.pct>=75?'freq-high':f.pct>=50?'freq-mid':'freq-low'}">
+                <div class="prog-fill" style="width:${f.pct}%"></div>
+              </div>
+            </div>`
+          : '<span class="text-muted">—</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== HISTÓRICO =====================
+function renderHistorico() {
+  const turmaId = document.getElementById('hist-turma').value;
+  const data = document.getElementById('hist-data').value;
+  const alunoNome = (document.getElementById('hist-aluno').value||'').toLowerCase();
+
+  let pres = [...DB.presencas];
+  if(turmaId) pres = pres.filter(p=>p.turmaId===turmaId);
+  if(data) pres = pres.filter(p=>p.data===data);
+  if(alunoNome) {
+    pres = pres.filter(p => {
+      const a = getAluno(p.alunoId);
+      return a && a.nome.toLowerCase().includes(alunoNome);
+    });
+  }
+  pres.sort((a,b)=>b.data.localeCompare(a.data));
+
+  const tbody = document.getElementById('hist-tbody');
+  if(pres.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty"><p>Nenhum registro encontrado</p></div></td></tr>`;
+    return;
+  }
+
+  const statusMap = { presente:'✅ Presente', falta:'❌ Falta', atrasado:'⏰ Atrasado' };
+  const clsMap = { presente:'text-success', falta:'text-danger', atrasado:'text-warning' };
+
+  tbody.innerHTML = pres.slice(0,100).map(p => {
+    const a = getAluno(p.alunoId);
+    const t = getTurma(p.turmaId);
+    return `<tr>
+      <td>${formatDate(p.data)}</td>
+      <td>${t ? t.nome : '—'}</td>
+      <td>${a ? a.nome : '—'}</td>
+      <td><span class="${clsMap[p.status]||''}">${statusMap[p.status]||p.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== EXPORT =====================
+function exportCSV() {
+  const turmaId = document.getElementById('rel-turma').value;
+  const from = document.getElementById('rel-inicio').value;
+  const to = document.getElementById('rel-fim').value;
+
+  let alunos = DB.alunos;
+  if(turmaId) alunos = alunos.filter(a=>a.turmaId===turmaId);
+
+  const rows = [['Nome','Turma','Curso','Presentes','Faltas','Atrasos','Frequência (%)']];
+  alunos.forEach(a => {
+    const t = getTurma(a.turmaId);
+    const f = getFrequencia(a.id, turmaId||null, from||null, to||null);
+    rows.push([a.nome, t?t.nome:'', t?t.curso:'', f.presentes, f.faltas, f.atrasos, f.pct!==null?f.pct+'%':'—']);
+  });
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadFile('\uFEFF'+csv, 'relatorio-frequencia.csv', 'text/csv;charset=utf-8');
+  toast('CSV exportado!');
+}
+
+function exportExcel() {
+  const turmaId = document.getElementById('rel-turma').value;
+  const from = document.getElementById('rel-inicio').value;
+  const to = document.getElementById('rel-fim').value;
+
+  let alunos = DB.alunos;
+  if(turmaId) alunos = alunos.filter(a=>a.turmaId===turmaId);
+
+  // Build HTML table (Excel-compatible)
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+  <head><meta charset="UTF-8"><style>
+    table { border-collapse: collapse; }
+    th { background: #1a56db; color: white; font-weight: bold; border: 1px solid #ccc; padding: 6px 10px; }
+    td { border: 1px solid #ccc; padding: 5px 10px; }
+    .green { color: #15803d; font-weight: bold; }
+    .red { color: #dc2626; font-weight: bold; }
+    .orange { color: #d97706; font-weight: bold; }
+  </style></head><body>
+  <h2 style="font-family:Arial;">Relatório de Frequência — PresençaFácil</h2>
+  <p style="font-family:Arial;">Período: ${from?formatDate(from):'—'} a ${to?formatDate(to):'—'}</p>
+  <table><thead><tr>
+    <th>Nome</th><th>Turma</th><th>Curso</th><th>Presentes</th><th>Faltas</th><th>Atrasos</th><th>Frequência</th>
+  </tr></thead><tbody>`;
+
+  alunos.forEach(a => {
+    const t = getTurma(a.turmaId);
+    const f = getFrequencia(a.id, turmaId||null, from||null, to||null);
+    const cls = f.pct === null ? '' : f.pct >= 75 ? 'green' : f.pct >= 50 ? 'orange' : 'red';
+    html += `<tr>
+      <td>${a.nome}</td>
+      <td>${t?t.nome:''}</td>
+      <td>${t?t.curso:''}</td>
+      <td class="green">${f.presentes}</td>
+      <td class="red">${f.faltas}</td>
+      <td class="orange">${f.atrasos}</td>
+      <td class="${cls}">${f.pct!==null?f.pct+'%':'—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></body></html>';
+  downloadFile(html, 'relatorio-frequencia.xls', 'application/vnd.ms-excel;charset=utf-8');
+  toast('Excel exportado!');
+}
+
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], {type: mimeType});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ===================== BOOT =====================
+window.addEventListener('load', init);
+
+// Responsive: re-render selects on resize
+window.addEventListener('resize', () => {
+  if(window.innerWidth > 768) closeSidebar();
+});
+</script>
+</body>
+</html>
